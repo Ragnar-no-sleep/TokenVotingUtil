@@ -1,0 +1,30 @@
+databases:
+  - name: lock-verifier-db
+    plan: free
+    databaseName: lockverifier
+    user: lockverifier
+
+services:
+  - type: web
+    name: lock-verifier
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: SOLANA_RPC_URL
+        sync: false
+      - key: TOKEN_MINT
+        value: 9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump
+      - key: CACHE_TTL_SECONDS
+        value: "300"
+      - key: TOKEN_DECIMALS
+        value: "6"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lock-verifier-db
+          property: connectionString
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SITE_TITLE
+        value: ASDelegate
