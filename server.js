@@ -1,5 +1,6 @@
 require("dotenv").config();
 const logger = require("./logger");
+const { rateLimit, initRedis, closeRedis } = require("./rate-limiter");
 
 const express = require("express");
 const cors = require("cors");
@@ -15,31 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SITE_TITLE = process.env.SITE_TITLE || "ASDelegate";
 
-// Simple in-memory rate limiter (per IP)
-const rateLimits = new Map();
-function rateLimit(windowMs, maxRequests) {
-  return (req, res, next) => {
-    const key = (req.ip || "unknown") + ":" + req.path;
-    const now = Date.now();
-    let entry = rateLimits.get(key);
-    if (!entry || now - entry.start > windowMs) {
-      entry = { start: now, count: 0 };
-      rateLimits.set(key, entry);
-    }
-    entry.count++;
-    if (entry.count > maxRequests) {
-      return res.status(429).json({ error: "Too many requests, please try again later" });
-    }
-    next();
-  };
-}
-// Clean up stale entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of rateLimits) {
-    if (now - entry.start > 600000) rateLimits.delete(key);
-  }
-}, 300000);
+// Rate limiting is now handled by Redis (see rate-limiter.js)
 
 // Allow iframe embedding from any origin
 // CORS and CSP middleware with origin allowlist
@@ -421,7 +398,15 @@ app.get("/api/health", (req, res) => {
 });
 
 app.listen(PORT, async () => {
+  await initRedis();
   logger.info(`${SITE_TITLE} running on port ${PORT}`);
   await initDb();
   await startBackgroundRefresh();
+  
+  // Graceful shutdown
+  process.on('SIGTERM', async () => {
+    logger.info('SIGTERM received, shutting down gracefully');
+    await closeRedis();
+    process.exit(0);
+  });
 });
