@@ -1,4 +1,5 @@
 require("dotenv").config();
+const logger = require("./logger");
 
 const express = require("express");
 const cors = require("cors");
@@ -46,7 +47,7 @@ const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || "http://localhost:3000,
 const ALLOWED_ORIGINS = allowedOriginsEnv.split(",").map(o => o.trim());
 
 if (!ALLOWED_ORIGINS || ALLOWED_ORIGINS.length === 0) {
-  console.error("ERROR: ALLOWED_ORIGINS env var not configured");
+  logger.error("ERROR: ALLOWED_ORIGINS env var not configured");
   process.exit(1);
 }
 
@@ -83,7 +84,7 @@ app.get("/api/locks", async (req, res) => {
     const data = await fetchLockData();
     res.json(data);
   } catch (error) {
-    console.error("Error fetching lock data:", error);
+    logger.error("Error fetching lock data:", error);
     res.status(503).json({
       error: "Failed to fetch lock data",
       message: error.message,
@@ -98,7 +99,7 @@ app.post("/api/refresh", rateLimit(30000, 1), async (req, res) => {
     const data = await fetchLockData();
     res.json(data);
   } catch (error) {
-    console.error("Manual refresh failed:", error);
+    logger.error("Manual refresh failed:", error);
     res.status(503).json({ error: "Refresh failed", message: error.message });
   }
 });
@@ -132,7 +133,7 @@ app.post("/api/locks/:id/name", rateLimit(60000, 5), async (req, res) => {
     await setLockName(lockId, name.trim());
     res.json({ success: true, id: lockId, name: name.trim() });
   } catch (error) {
-    console.error("Rename failed:", error);
+    logger.error("Rename failed:", error);
     res.status(500).json({ error: "Rename failed", message: error.message });
   }
 });
@@ -147,7 +148,7 @@ app.get("/api/wallet/:address/balance", rateLimit(60000, 10), async (req, res) =
     const balance = await getWalletTokenBalance(address);
     res.json({ balance });
   } catch (error) {
-    console.error("Wallet balance fetch failed:", error);
+    logger.error("Wallet balance fetch failed:", error);
     res.status(500).json({ error: "Failed to fetch balance", message: error.message });
   }
 });
@@ -158,7 +159,7 @@ app.get("/api/proposals", async (req, res) => {
     const proposals = await getAllProposals();
     res.json({ proposals });
   } catch (error) {
-    console.error("Error fetching proposals:", error);
+    logger.error("Error fetching proposals:", error);
     res.status(500).json({ error: "Failed to fetch proposals", message: error.message });
   }
 });
@@ -219,7 +220,7 @@ app.post("/api/proposals", rateLimit(60000, 3), async (req, res) => {
     await createProposal(id, title.trim(), desc, trimmedChoices, wallet, threshold, endsAt, mode);
     res.json({ success: true, id });
   } catch (error) {
-    console.error("Create proposal failed:", error);
+    logger.error("Create proposal failed:", error);
     res.status(500).json({ error: "Failed to create proposal", message: error.message });
   }
 });
@@ -284,7 +285,7 @@ app.post("/api/proposals/:id/vote", rateLimit(60000, 10), async (req, res) => {
     await insertVote(proposalId, wallet, choiceIndex, votingPower);
     res.json({ success: true, votingPower });
   } catch (error) {
-    console.error("Vote failed:", error);
+    logger.error("Vote failed:", error);
     res.status(500).json({ error: "Vote failed", message: error.message });
   }
 });
@@ -420,7 +421,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.listen(PORT, async () => {
-  console.log(`${SITE_TITLE} running on port ${PORT}`);
+  logger.info(`${SITE_TITLE} running on port ${PORT}`);
   await initDb();
   await startBackgroundRefresh();
 });
