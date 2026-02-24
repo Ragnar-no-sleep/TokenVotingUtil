@@ -41,14 +41,35 @@ setInterval(() => {
 }, 300000);
 
 // Allow iframe embedding from any origin
+// CORS and CSP middleware with origin allowlist
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || "http://localhost:3000,http://localhost:5173";
+const ALLOWED_ORIGINS = allowedOriginsEnv.split(",").map(o => o.trim());
+
+if (!ALLOWED_ORIGINS || ALLOWED_ORIGINS.length === 0) {
+  console.error("ERROR: ALLOWED_ORIGINS env var not configured");
+  process.exit(1);
+}
+
 app.use((req, res, next) => {
-  res.removeHeader("X-Frame-Options");
-  res.setHeader("Content-Security-Policy", "frame-ancestors *");
+  const frameSources = ALLOWED_ORIGINS.join(" ");
+  res.setHeader("Content-Security-Policy", "frame-ancestors " + frameSources);
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
   next();
 });
 
 // CORS — allow all origins for iframe/fetch from Squarespace
-app.use(cors({ origin: "*", methods: ["GET", "POST", "DELETE"] }));
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS not allowed"));
+    }
+  },
+  methods: ["GET", "POST", "DELETE"],
+  credentials: true,
+  maxAge: 86400
+}));
 
 // Parse JSON request bodies (limit payload size)
 app.use(express.json({ limit: "16kb" }));
