@@ -1533,7 +1533,7 @@
         var leader = sorted[0];
         var runnerUp = sorted.length > 1 ? sorted[1] : 0;
         var margin = ((leader - runnerUp) / totalPool) * 100;
-        return { met: margin >= threshold, margin: margin };
+        return { met: margin > threshold, margin: margin };
       }
       function getTotalPool(voteMode) {
         if (voteMode === "all") return tokenTotalSupply || 0;
@@ -2045,10 +2045,14 @@
         var thresholdResult = checkThreshold(totals, totalPool, thresholdVal);
         var endsAt = new Date(p.ends_at);
         var isOpen = endsAt > new Date();
-        // Find winning choice index
+        // Find winning choice index — with tie detection
         var winnerIdx = 0;
-        totals.forEach(function (t, i) { if (t > totals[winnerIdx]) winnerIdx = i; });
-        return { choices: choices, votes: votes, totals: totals, grandTotal: grandTotal, totalPool: totalPool, thresholdVal: thresholdVal, thresholdResult: thresholdResult, endsAt: endsAt, isOpen: isOpen, winnerIdx: winnerIdx };
+        var tied = false;
+        totals.forEach(function (t, i) {
+          if (t > totals[winnerIdx]) { winnerIdx = i; tied = false; }
+          else if (i !== winnerIdx && t === totals[winnerIdx] && t > 0) { tied = true; }
+        });
+        return { choices: choices, votes: votes, totals: totals, grandTotal: grandTotal, totalPool: totalPool, thresholdVal: thresholdVal, thresholdResult: thresholdResult, endsAt: endsAt, isOpen: isOpen, winnerIdx: winnerIdx, tied: tied };
       }
 
       function renderProposalCards() {
@@ -2113,7 +2117,9 @@
           historyHead.style.display = "flex";
           closedList.forEach(function (item) {
             var p = item.p, t = item.t;
-            var statusBadge = t.thresholdResult.met
+            var statusBadge = t.tied
+              ? '<span class="badge badge-closed">Tied</span>'
+              : t.thresholdResult.met
               ? '<span class="badge badge-passed">Passed</span>'
               : '<span class="badge badge-closed">Closed</span>';
 
