@@ -70,6 +70,9 @@ The app will be available at `http://localhost:3000`.
 | `DATABASE_URL` | — | PostgreSQL connection string. Required. Example: `postgresql://user:password@localhost:5432/lockverifier` |
 | `ADMIN_PASSWORD` | — | Password for the admin panel. Leave empty to disable the admin panel entirely. |
 | `SITE_TITLE` | `ASDelegate` | Site title displayed in the header and browser tab. |
+| `ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Comma-separated list of origins allowed to embed this app via iframe. Configure for production. |
+| `LOG_LEVEL` | `info` | Winston log level: `debug`, `info`, `warn`, `error`. |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection string for distributed rate limiting. Falls back to in-memory if unavailable. |
 
 ## Deploy to Render
 
@@ -91,6 +94,39 @@ Render can provision everything automatically from the included `render.yaml` bl
 3. Run `npm install && npm start`
 4. The app creates its database tables automatically on first startup
 
+### Redis Rate Limiting
+
+The app uses Redis for distributed rate limiting (shared across multiple instances).
+
+- **Production**: Requires a Redis instance. Render provides a Redis addon in the dashboard.
+- **Development**: Falls back to in-memory rate limiting if Redis is unavailable.
+- **Configuration**: Set `REDIS_URL` env var to your Redis connection string.
+
+If Redis is not available and you're in production, rate limiting will still work (in-memory fallback), but will reset on app restart.
+
+### Structured Logging
+
+The app uses Winston for structured logging with multiple outputs:
+
+- **Development**: Console output with colors for readability
+- **Production**: Console + file logging (JSON format) to `logs/error.log` and `logs/combined.log`
+- **Configuration**: Set `LOG_LEVEL` env var (`debug`, `info`, `warn`, `error`). Default is `info`.
+
+**Important**: In production, ensure the `logs/` directory exists and is writable. On Render, this is handled automatically by the build script.
+
+### CORS and Iframe Embedding
+
+The app uses CORS and Content-Security-Policy to control iframe embedding:
+
+- **ALLOWED_ORIGINS**: Comma-separated list of domains that can embed the app
+- **Default** (development): `http://localhost:3000,http://localhost:5173`
+- **Production**: Set explicitly in your hosting platform (e.g., Render env vars)
+
+Example for embedding on `mysite.com`:
+```
+ALLOWED_ORIGINS=http://mysite.com,https://mysite.com
+```
+
 ## Embed in Squarespace (or Any Website)
 
 Add a **Code Block** (or raw HTML block) with:
@@ -104,7 +140,7 @@ Add a **Code Block** (or raw HTML block) with:
 </iframe>
 ```
 
-The server sets `Content-Security-Policy: frame-ancestors *` and `Access-Control-Allow-Origin: *` so embedding works from any domain.
+The server restricts iframe embedding to origins in `ALLOWED_ORIGINS` env var via CSP and CORS headers. Set this to your embedding domains in production.
 
 ## API Endpoints
 
